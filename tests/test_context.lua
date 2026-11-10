@@ -2,8 +2,8 @@
 --
 -- The fake lays a list of paragraphs out like crengine: each character is
 -- 40 px wide in 100 px tall line boxes, `per_line` characters per line.
--- XPointers are "p/i" (paragraph p, character offset i). Between paragraphs
--- getTextFromXPointers returns "\n", as crengine does.
+-- XPointers are "p/i" (paragraph p, character offset i). Paragraph breaks
+-- come back from getTextFromXPointers as crengine returns them (see below).
 local Text = require("cp_text")
 local Context = require("cp_context")
 
@@ -57,12 +57,22 @@ local function fakeDoc(paras, per_line)
         if not k or k == #self.cells then return nil end
         return xp(self.cells[k + 1])
     end
+    -- Like crengine's ldomXRange::getRangeText('\n'): the block delimiter goes
+    -- between two pieces of collected text only, so a range that starts or
+    -- ends exactly at a paragraph boundary has no "\n" at that end (seen on
+    -- device: the old code read the next paragraph as context).
     function doc:getTextFromXPointers(a, b)
         local ka, kb = index[a], index[b]
-        local out = {}
+        local out, pending = {}, false
         for k = ka, kb - 1 do
             local c = self.cells[k]
-            out[#out + 1] = c.ch or "\n"
+            if c.ch then
+                if pending and #out > 0 then out[#out + 1] = "\n" end
+                pending = false
+                out[#out + 1] = c.ch
+            else
+                pending = true
+            end
         end
         return table.concat(out)
     end
@@ -131,3 +141,15 @@ assert(not Context.onGlyph({ x = 0, y = 0, w = 0, h = 40 }, 40, 0, 20), "empty b
 -- Engine calls that fail are not taps on a character.
 assert(not Context.charAt({ getTextFromPositions = function() error("boom") end }, { x = 1, y = 1 }, TH))
 assert(not Context.charAt({}, { x = 1, y = 1 }, TH))
+
+-- Regression (seen on device): a heading ending in a Han character followed by
+-- a paragraph starting with one. Tapping the heading's last character must not
+-- read the paragraph, and tapping the paragraph's first must not read the heading.
+local hp = fakeDoc({ "高度人性化的俸禄制度", "唐代俸禄水平在中国" }, 20)
+c, l, r = around(hp, tapAt(hp, 0, 9))
+eq(c, "度"); eq(l, "人性化的俸禄制"); eq(r, "", "heading end: nothing from the next paragraph")
+c, l, r = around(hp, tapAt(hp, 1, 0))
+eq(c, "唐"); eq(l, "", "paragraph start: nothing from the heading"); eq(r, "代俸禄水平在中")
+-- Middle of a paragraph is unaffected.
+c, l, r = around(hp, tapAt(hp, 1, 3))
+eq(c, "禄"); eq(l, "唐代俸"); eq(r, "水平在中国")

@@ -71,13 +71,30 @@ local function walk(document, xp, step, n)
     return cur
 end
 
+-- Text.chars(text) without its last (or first) character, when that character
+-- is `char`; nil otherwise (the range did not end/start where expected).
+local function withoutLast(text, char)
+    if not text or #text < #char or text:sub(-#char) ~= char then return nil end
+    return text:sub(1, #text - #char)
+end
+local function withoutFirst(text, char)
+    if not text or #text < #char or text:sub(1, #char) ~= char then return nil end
+    return text:sub(#char + 1)
+end
+
 --[[--
 Up to `max` Han characters before and after the tapped one.
 
-Takes the text from `max` visible characters before pos0 up to pos0 (and from
-pos1 to `max` characters after it) in one call each, then keeps only the Han
-run touching the tapped character: punctuation, Latin, digits, spaces and the
-newline crengine puts between paragraphs all end it. Line wraps do not.
+Takes the text from `max` visible characters before the tapped character up
+to and including it (and from it to `max` characters after it) in one call
+each, then keeps only the Han run touching the tapped character: punctuation,
+Latin, digits, spaces and paragraph breaks all end it. Line wraps do not.
+
+The tapped character is included in each range on purpose: crengine's
+getRangeText only puts its "\n" block delimiter between two pieces of
+collected text, so a range that stops exactly at a paragraph boundary (the
+tapped character first or last in its paragraph) would otherwise run the two
+paragraphs together.
 Returns left, right (arrays of characters, in reading order).
 ]]
 function Context.around(document, hit, max)
@@ -85,13 +102,15 @@ function Context.around(document, hit, max)
     local left, right = {}, {}
     local from = walk(document, hit.pos0, "getPrevVisibleChar", max)
     if from ~= hit.pos0 then
-        left = Text.hanSuffix(call(document, "getTextFromXPointers", from, hit.pos0) or "", max)
+        local text = withoutLast(call(document, "getTextFromXPointers", from, hit.pos1), hit.char)
+        left = Text.hanSuffix(text or "", max)
     end
     -- pos1 is the end of the tapped character; one more step than max because
     -- the first step from pos1 may only reach the start of the next character.
     local to = walk(document, hit.pos1, "getNextVisibleChar", max + 1)
     if to ~= hit.pos1 then
-        right = Text.hanPrefix(call(document, "getTextFromXPointers", hit.pos1, to) or "", max)
+        local text = withoutFirst(call(document, "getTextFromXPointers", hit.pos0, to), hit.char)
+        right = Text.hanPrefix(text or "", max)
     end
     return left, right
 end
