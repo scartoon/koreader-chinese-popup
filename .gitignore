@@ -1,0 +1,9 @@
+.DS_Store
+__pycache__/
+*.pyc
+# Downloaded CC-CEDICT and release zips
+build/
+dist/
+# Built by tools/build_db.py; shipped as a release asset, not committed (about 14 MB)
+chinesepopup.koplugin/data/cedict.sqlite
+chinesepopup.koplugin/data/*.tmp
