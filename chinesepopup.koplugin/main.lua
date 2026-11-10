@@ -206,13 +206,14 @@ function ChinesePopup:showPopup(hit)
     local time = require("ui/time")
     local t0 = time.monotonic()
     local matches, left, right = self:matchesFor(hit)
-    if not matches or #matches == 0 then
-        -- Nothing in CC-CEDICT (or no database): straight to KOReader's dictionaries.
-        if not matches then
-            UIManager:show(InfoMessage:new{
-                text = T(_("Chinese popup: dictionary not available (%1)."), tostring(left)), timeout = 4 })
-            return
-        end
+    if not matches then
+        -- No database (data/cedict.sqlite missing): say so; left holds the error.
+        UIManager:show(InfoMessage:new{
+            text = T(_("Chinese popup: dictionary not available (%1)."), tostring(left)), timeout = 4 })
+        return
+    end
+    if #matches == 0 then
+        -- Nothing in CC-CEDICT: straight to KOReader's dictionaries.
         self:lookupInKOReader(hit.char, hit.box)
         return
     end
