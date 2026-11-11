@@ -1,3 +1,5 @@
+> **This plugin has been merged into [koreader-chinese-helper](https://github.com/scartoon/koreader-chinese-helper)**, which does pinyin above rare characters and the tap popup in one plugin, and is where development continues. Its README explains how to move over (your settings are copied automatically).
+
 # koreader-chinese-popup
 
 A [KOReader](https://github.com/koreader/koreader) plugin for reading Chinese: **tap a Chinese
